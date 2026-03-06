@@ -28,4 +28,30 @@ else
   fi
 fi
 
+# Persist Claude Code auth/config under /data/secrets so login survives redeploys
+mkdir -p /data/secrets/claude
+chown -R openclaw:openclaw /data/secrets 2>/dev/null || true
+chmod 700 /data/secrets 2>/dev/null || true
+chmod 700 /data/secrets/claude 2>/dev/null || true
+
+CLAUDE_HOME_TARGET="/home/openclaw/.claude"
+CLAUDE_VOLUME_TARGET="/data/secrets/claude/.claude"
+
+if [ -e "$CLAUDE_HOME_TARGET" ] && [ ! -L "$CLAUDE_HOME_TARGET" ]; then
+  mkdir -p /data/secrets/claude
+  rm -rf "$CLAUDE_VOLUME_TARGET"
+  mv "$CLAUDE_HOME_TARGET" "$CLAUDE_VOLUME_TARGET"
+fi
+
+if [ ! -e "$CLAUDE_VOLUME_TARGET" ]; then
+  mkdir -p "$CLAUDE_VOLUME_TARGET"
+  chown -R openclaw:openclaw /data/secrets/claude 2>/dev/null || true
+fi
+
+if [ ! -L "$CLAUDE_HOME_TARGET" ]; then
+  rm -rf "$CLAUDE_HOME_TARGET"
+  ln -sf "$CLAUDE_VOLUME_TARGET" "$CLAUDE_HOME_TARGET"
+  echo "[entrypoint] Persisted Claude Code state to /data/secrets/claude"
+fi
+
 exec gosu openclaw node src/server.js
