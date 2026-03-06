@@ -110,6 +110,10 @@ COPY --from=openclaw-build /openclaw /openclaw
 RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /openclaw/dist/entry.js "$@"' > /usr/local/bin/openclaw \
   && chmod +x /usr/local/bin/openclaw
 
+# Install ClawHub CLI used by skills
+RUN npm install -g clawhub \
+  && clawhub --version
+
 COPY src ./src
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
