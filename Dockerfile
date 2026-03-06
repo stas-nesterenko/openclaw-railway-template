@@ -85,6 +85,15 @@ RUN apt-get update \
     procps \
     python3 \
     build-essential \
+    wget \
+    gnupg2 \
+  && mkdir -p -m 755 /etc/apt/keyrings \
+  && wget -nv -O- https://acli.atlassian.com/gpg/public-key.asc | gpg --dearmor -o /etc/apt/keyrings/acli-archive-keyring.gpg \
+  && chmod go+r /etc/apt/keyrings/acli-archive-keyring.gpg \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/acli-archive-keyring.gpg] https://acli.atlassian.com/linux/deb stable main" > /etc/apt/sources.list.d/acli.list \
+  && apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends acli \
+  && acli --version \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
