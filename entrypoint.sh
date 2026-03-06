@@ -54,4 +54,30 @@ if [ ! -L "$CLAUDE_HOME_TARGET" ]; then
   echo "[entrypoint] Persisted Claude Code state to /data/secrets/claude"
 fi
 
+# Persist SSH keys/config from /data/host-config/ssh to openclaw user's ~/.ssh
+SSH_VOLUME_DIR="/data/host-config/ssh"
+SSH_HOME_DIR="/home/openclaw/.ssh"
+
+mkdir -p "$SSH_VOLUME_DIR"
+chown -R openclaw:openclaw /data/host-config 2>/dev/null || true
+chmod 700 /data/host-config 2>/dev/null || true
+chmod 700 "$SSH_VOLUME_DIR" 2>/dev/null || true
+
+if [ -e "$SSH_HOME_DIR" ] && [ ! -L "$SSH_HOME_DIR" ]; then
+  # Migrate existing ~/.ssh content into persistent dir without overwriting existing files
+  cp -a "$SSH_HOME_DIR"/. "$SSH_VOLUME_DIR"/ 2>/dev/null || true
+  rm -rf "$SSH_HOME_DIR"
+fi
+
+if [ ! -L "$SSH_HOME_DIR" ]; then
+  ln -sf "$SSH_VOLUME_DIR" "$SSH_HOME_DIR"
+  echo "[entrypoint] Linked ~/.ssh to /data/host-config/ssh"
+fi
+
+# Fix SSH file permissions (ignore if no matching files)
+find "$SSH_VOLUME_DIR" -maxdepth 1 -type f -name "id_*" ! -name "*.pub" -exec chmod 600 {} + 2>/dev/null || true
+find "$SSH_VOLUME_DIR" -maxdepth 1 -type f -name "*.pub" -exec chmod 644 {} + 2>/dev/null || true
+[ -f "$SSH_VOLUME_DIR/config" ] && chmod 600 "$SSH_VOLUME_DIR/config" || true
+[ -f "$SSH_VOLUME_DIR/known_hosts" ] && chmod 644 "$SSH_VOLUME_DIR/known_hosts" || true
+
 exec gosu openclaw node src/server.js
