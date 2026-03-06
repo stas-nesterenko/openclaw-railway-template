@@ -94,6 +94,8 @@ RUN apt-get update \
   && apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends acli \
   && acli --version \
+  && curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash \
+  && filebrowser version \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -115,8 +117,9 @@ RUN npm install -g clawhub \
   && clawhub --version
 
 COPY src ./src
+COPY start.sh ./start.sh
 COPY entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh ./start.sh
 
 # Create openclaw user, set up directories, install Homebrew as that user
 RUN useradd -m -s /bin/bash openclaw \

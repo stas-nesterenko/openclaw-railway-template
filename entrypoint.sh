@@ -80,4 +80,9 @@ find "$SSH_VOLUME_DIR" -maxdepth 1 -type f -name "*.pub" -exec chmod 644 {} + 2>
 [ -f "$SSH_VOLUME_DIR/config" ] && chmod 600 "$SSH_VOLUME_DIR/config" || true
 [ -f "$SSH_VOLUME_DIR/known_hosts" ] && chmod 644 "$SSH_VOLUME_DIR/known_hosts" || true
 
+if [ -x /app/start.sh ]; then
+  echo "[entrypoint] Launching /app/start.sh"
+  gosu openclaw /app/start.sh || echo "[entrypoint] start.sh exited non-zero"
+fi
+
 exec gosu openclaw node src/server.js

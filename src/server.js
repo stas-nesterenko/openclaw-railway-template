@@ -101,6 +101,8 @@ const INTERNAL_GATEWAY_PORT = Number.parseInt(
 );
 const INTERNAL_GATEWAY_HOST = process.env.INTERNAL_GATEWAY_HOST ?? "127.0.0.1";
 const GATEWAY_TARGET = `http://${INTERNAL_GATEWAY_HOST}:${INTERNAL_GATEWAY_PORT}`;
+const FILEBROWSER_TARGET =
+  process.env.FILEBROWSER_TARGET?.trim() || "http://127.0.0.1:8081";
 
 const OPENCLAW_ENTRY =
   process.env.OPENCLAW_ENTRY?.trim() || "/openclaw/dist/entry.js";
@@ -407,7 +409,15 @@ try {
 
 const app = express();
 app.disable("x-powered-by");
-app.use(express.json({ limit: "1mb" }));
+app.use(
+  express.json({
+    limit: "1mb",
+    type: (req) => {
+      if ((req.path || "").startsWith("/files")) return false;
+      return req.is("application/json");
+    },
+  }),
+);
 
 // Minimal health endpoint for Railway.
 app.get("/setup/healthz", (_req, res) => res.json({ ok: true }));
@@ -1325,6 +1335,23 @@ app.get("/setup/export", requireSetupAuth, async (_req, res) => {
   tar.stdout.pipe(res);
 });
 
+const filebrowserProxy = httpProxy.createProxyServer({
+  target: FILEBROWSER_TARGET,
+  ws: false,
+  xfwd: true,
+  proxyTimeout: 120_000,
+  timeout: 120_000,
+  changeOrigin: true,
+});
+
+filebrowserProxy.on("error", (err, _req, res) => {
+  console.error("[filebrowser-proxy]", err);
+  if (res && typeof res.headersSent !== "undefined" && !res.headersSent) {
+    res.writeHead(503, { "Content-Type": "text/plain" });
+    res.end("Filebrowser unavailable");
+  }
+});
+
 const proxy = httpProxy.createProxyServer({
   target: GATEWAY_TARGET,
   ws: true,
@@ -1366,6 +1393,14 @@ proxy.on("proxyReq", (proxyReq, req, res) => {
 proxy.on("proxyReqWs", (proxyReq, req, socket, options, head) => {
   proxyReq.setHeader("Authorization", `Bearer ${OPENCLAW_GATEWAY_TOKEN}`);
   proxyReq.setHeader("Origin", PROXY_ORIGIN);
+});
+
+// Reverse proxy Filebrowser under /files (prefix must be preserved)
+app.use("/files", (req, res) => {
+  const origUrl = req.url || "/";
+  const suffix = origUrl.startsWith("/") ? origUrl : `/${origUrl}`;
+  req.url = `/files${suffix}`;
+  return filebrowserProxy.web(req, res, { target: FILEBROWSER_TARGET });
 });
 
 // Auto-inject token into /openclaw browser GET requests so the Control UI works
