@@ -114,7 +114,7 @@ RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /openclaw/dist/entry.js "$@"'
 
 # Install ClawHub CLI used by skills
 RUN npm install -g clawhub \
-  && clawhub --version
+  && clawhub --help >/dev/null
 
 COPY src ./src
 COPY start.sh ./start.sh
